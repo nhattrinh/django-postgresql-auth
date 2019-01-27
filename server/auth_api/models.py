@@ -5,6 +5,6 @@ import uuid
 
 class User(models.User):
     # add more fields such as stock tickers
-    tickers = ArrayField(db_models.CharField(max_length = 50))
+    tickers = ArrayField(db_models.CharField(max_length=255, blank=True, default=''), default=list, null=True)
 
 

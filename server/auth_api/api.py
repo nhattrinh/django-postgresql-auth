@@ -4,62 +4,66 @@ from django.http import JsonResponse
 import json
 from rest_framework_jwt.settings import api_settings
 
-jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
-jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
-
 def register(request):
     if request.method == 'POST':
-        username = request.REQUEST.get('username', None)
-        email = request.REQUEST.get('email', None)
-        password = request.REQUEST.get('password', None)
+        # body is a bytes object, decoded into string, then loaded into dictionary by Python JSON parser
+        body = json.loads(request.body.decode('utf-8'))
+        username = body.get('username', None)
+        email = body.get('email', None)
+        password = body.get('password', None)
 
         if username and email and password:
-            user = User.objects.create_user(username, email, password)
+            user = User.objects.create_user(username, email, password, tickers=[])
+
+            jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
+            jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
+
             payload = jwt_payload_handler(user)
             token = jwt_encode_handler(payload)
 
             user.save()
 
             return JsonResponse({
-                'keys': [
-                    { 'success': True },
-                    { 'user': json.dumps(user) },
-                    { 'token': json.dumps(token) },
-                    { 'msg': 'Successfully created a new user' }
-                ]
+                'success': True,
+                'user': {
+                    'username': username,
+                    'email': email,
+                },
+                'token': 'JWT ' + token,
+                'msg': 'Successfully created a new user'
             })
     
     return JsonResponse({
-        'keys': [
-            { 'success': False },
-            { 'msg': 'Invalid request made, try again' }
-        ]
+        'success': False,
+        'msg': 'Invalid request made, try again'
     })
 
 def login(request):
     if request.method == 'POST':
-        username = request.REQUEST.get('username', None)
-        password = request.REQUEST.get('password', None)
+        body = json.loads(request.body.decode('utf-8'))
+        username = body.get('username', None)
+        password = body.get('password', None)
 
         if username and password:
-            user = authenticate(request)
+            user = authenticate(username=username, password=password)
             if user is None:
                 return JsonResponse({
-                    'keys': [
-                        { 'success': False },
-                        { 'msg': 'Invalid credentials, try again' } 
-                    ]
+                    'success': False,
+                    'msg': 'Invalid credentials, try again'
                 });
             else:
+                jwt_payload_handler = api_settings.JWT_PAYLOAD_HANDLER
+                jwt_encode_handler = api_settings.JWT_ENCODE_HANDLER
+
+                payload = jwt_payload_handler(user)
+                token = jwt_encode_handler(payload)
+                
                 return JsonResponse({
-                    'keys': [
-                        { 'success': True },
-                        { 'msg': 'User successfully logged in' }
-                    ]
+                    'success': True,
+                    'msg': 'User successfully logged in',
+                    'token': 'JWT ' + token
                 })
     return JsonResponse({
-        'keys': [
-            { 'success': True },
-            { 'msg': 'Invalid request made, try again' }
-        ]
+        'success': False,
+        'msg': 'Invalid request made, try again'
     })
